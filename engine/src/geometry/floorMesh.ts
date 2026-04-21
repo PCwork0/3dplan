@@ -42,7 +42,7 @@ export function buildFloorMeshes(
 function buildRoomFloor(
   room: FloorPlanInput['rooms'][number],
   nodeMap: Map<string, Vec2>,
-  input: FloorPlanInput,
+  _input: FloorPlanInput,
 ): FloorMesh3DExtended {
   const elevation = room.elevation ?? DEFAULT_ELEVATION;
 

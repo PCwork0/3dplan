@@ -33,8 +33,7 @@
  *   Bottom              : 0,3,2  0,2,1
  */
 
-import type { WallFootprint, WallMesh3D, Vec2 } from '../types.ts';
-import { sub, cross, normalize as normalizeV2 } from './vec2.ts';
+import type { WallFootprint, WallMesh3D, GlassPaneData, Vec2, OpeningInput } from '../types.ts';
 
 // ─── Internal 3D vector ───────────────────────────────────────────────────────
 
@@ -208,5 +207,147 @@ export function buildWallMesh(fp: WallFootprint): WallMesh3D {
     normals:     m.normals,
     uvs:         m.uvs,
     vertexCount: m.positions.length / 3,
+  };
+}
+
+// ─── Opening support ──────────────────────────────────────────────────────────
+
+/** Lerp two Vec2 by scalar t. */
+function lerpV(a: Vec2, b: Vec2, t: number): Vec2 {
+  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+}
+
+/**
+ * Append one box segment of the wall to the flat mesh.
+ * t0/t1 ∈ [0,1] along the wall footprint.
+ * yBottom/yTop define the vertical extent.
+ */
+function appendSegment(
+  m: FlatMesh,
+  fp: WallFootprint,
+  t0: number, t1: number,
+  yBottom: number, yTop: number,
+  wallLen: number,
+): void {
+  const srT0 = lerpV(fp.startRight, fp.endRight, t0);
+  const slT0 = lerpV(fp.startLeft,  fp.endLeft,  t0);
+  const srT1 = lerpV(fp.startRight, fp.endRight, t1);
+  const slT1 = lerpV(fp.startLeft,  fp.endLeft,  t1);
+
+  const u0 = t0 * wallLen;
+  const u1 = t1 * wallLen;
+  const vB = yBottom / Math.max(fp.height, 0.001);
+  const vT = yTop    / Math.max(fp.height, 0.001);
+
+  const seg: V3[] = [
+    v3(srT0.x, yBottom, srT0.z), // 0
+    v3(srT1.x, yBottom, srT1.z), // 1
+    v3(slT1.x, yBottom, slT1.z), // 2
+    v3(slT0.x, yBottom, slT0.z), // 3
+    v3(srT0.x, yTop,    srT0.z), // 4
+    v3(srT1.x, yTop,    srT1.z), // 5
+    v3(slT1.x, yTop,    slT1.z), // 6
+    v3(slT0.x, yTop,    slT0.z), // 7
+  ];
+
+  pushQuad(m, seg[0]!, seg[4]!, seg[5]!, seg[1]!, [u0,vB],[u0,vT],[u1,vT],[u1,vB]); // front
+  pushQuad(m, seg[2]!, seg[6]!, seg[7]!, seg[3]!, [u1,vB],[u1,vT],[u0,vT],[u0,vB]); // back
+  pushQuad(m, seg[1]!, seg[5]!, seg[6]!, seg[2]!, [0,vB],[0,vT],[1,vT],[1,vB]);      // end cap
+  pushQuad(m, seg[3]!, seg[7]!, seg[4]!, seg[0]!, [0,vB],[0,vT],[1,vT],[1,vB]);      // start cap
+  pushQuad(m, seg[4]!, seg[7]!, seg[6]!, seg[5]!, [u0,0],[u0,1],[u1,1],[u1,0]);      // top
+  pushQuad(m, seg[0]!, seg[1]!, seg[2]!, seg[3]!, [u0,0],[u1,0],[u1,1],[u0,1]);      // bottom
+}
+
+/**
+ * Build a WallMesh3D with geometry gaps for door and window openings.
+ * Falls back to buildWallMesh when there are no openings.
+ *
+ * @param wallStart/wallEnd — resolved 2D positions, used to compute wall length
+ *   so that opening widths (in metres) can be converted to t-parameter fractions.
+ */
+export function buildWallMeshWithOpenings(
+  fp: WallFootprint,
+  openings: OpeningInput[],
+  wallStart: Vec2,
+  wallEnd:   Vec2,
+): WallMesh3D {
+  if (openings.length === 0) return buildWallMesh(fp);
+
+  const wallLen = Math.sqrt(
+    (wallEnd.x - wallStart.x) ** 2 +
+    (wallEnd.z - wallStart.z) ** 2,
+  );
+  if (wallLen < 0.001) return buildWallMesh(fp);
+
+  // Convert each opening into a gap descriptor
+  type Gap = { t0: number; t1: number; yBottom: number; yTop: number; isWindow: boolean };
+  const gaps: Gap[] = openings
+    .map((o): Gap => {
+      const hw = o.width / 2;
+      const t0 = Math.max(0, o.t - hw / wallLen);
+      const t1 = Math.min(1, o.t + hw / wallLen);
+      const sill   = o.type === 'window' ? (o.sillHeight ?? 0.9)  : 0;
+      const openH  = o.type === 'window' ? (o.height    ?? 1.2)   : (o.height ?? Math.min(2.1, fp.height));
+      return { t0, t1, yBottom: sill, yTop: Math.min(sill + openH, fp.height), isWindow: o.type === 'window' };
+    })
+    .sort((a, b) => a.t0 - b.t0);
+
+  const m: FlatMesh = { positions: [], normals: [], uvs: [] };
+  const glassPanes: GlassPaneData[] = [];
+  let prev = 0;
+
+  for (const gap of gaps) {
+    // Solid segment before gap
+    if (gap.t0 > prev + 1e-6) {
+      appendSegment(m, fp, prev, gap.t0, 0, fp.height, wallLen);
+    }
+
+    // Sill (below window) — doors have sill=0 so this is skipped
+    if (gap.yBottom > 1e-6) {
+      appendSegment(m, fp, gap.t0, gap.t1, 0, gap.yBottom, wallLen);
+    }
+
+    // Lintel (above opening)
+    if (gap.yTop < fp.height - 1e-6) {
+      appendSegment(m, fp, gap.t0, gap.t1, gap.yTop, fp.height, wallLen);
+    }
+
+    // Glass pane for windows — a thin quad at the wall centreline
+    if (gap.isWindow) {
+      const c0 = {
+        x: (lerpV(fp.startRight, fp.endRight, gap.t0).x + lerpV(fp.startLeft, fp.endLeft, gap.t0).x) / 2,
+        z: (lerpV(fp.startRight, fp.endRight, gap.t0).z + lerpV(fp.startLeft, fp.endLeft, gap.t0).z) / 2,
+      };
+      const c1 = {
+        x: (lerpV(fp.startRight, fp.endRight, gap.t1).x + lerpV(fp.startLeft, fp.endLeft, gap.t1).x) / 2,
+        z: (lerpV(fp.startRight, fp.endRight, gap.t1).z + lerpV(fp.startLeft, fp.endLeft, gap.t1).z) / 2,
+      };
+      const bl = v3(c0.x, gap.yBottom, c0.z);
+      const br = v3(c1.x, gap.yBottom, c1.z);
+      const tr = v3(c1.x, gap.yTop,    c1.z);
+      const tl = v3(c0.x, gap.yTop,    c0.z);
+      const gn = faceNormal(bl, br, tr);
+      const gm: FlatMesh = { positions: [], normals: [], uvs: [] };
+      pushQuad(gm, bl, tl, tr, br, [0,0],[0,1],[1,1],[1,0]);  // front face
+      pushQuad(gm, br, tr, tl, bl, [0,0],[0,1],[1,1],[1,0]);  // back face (DoubleSide)
+      void gn; // normal handled per-face by faceNormal inside pushQuad
+      glassPanes.push({ positions: gm.positions, normals: gm.normals });
+    }
+
+    prev = gap.t1;
+  }
+
+  // Trailing solid segment
+  if (prev < 1 - 1e-6) {
+    appendSegment(m, fp, prev, 1, 0, fp.height, wallLen);
+  }
+
+  return {
+    id:          fp.wallId,
+    positions:   m.positions,
+    normals:     m.normals,
+    uvs:         m.uvs,
+    vertexCount: m.positions.length / 3,
+    ...(glassPanes.length > 0 ? { glassPanes } : {}),
   };
 }

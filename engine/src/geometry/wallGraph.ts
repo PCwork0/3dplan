@@ -15,7 +15,7 @@
  *     on ALL walls at that junction (safe, slightly blocky, TODO: Phase 2).
  */
 
-import type { FloorPlanInput, NodeInput, ResolvedWall, Vec2 } from '../types.ts';
+import type { FloorPlanInput, ResolvedWall, Vec2 } from '../types.ts';
 
 const DEFAULT_THICKNESS = 0.2;
 const DEFAULT_HEIGHT    = 3.0;

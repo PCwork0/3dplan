@@ -47,15 +47,15 @@
 
 import type {
   FloorPlanInput,
+  OpeningInput,
   SceneData,
   EngineResult,
-  ValidationError,
 } from './types.ts';
 
 import { validateInput, parseAndValidate } from './schema.ts';
 import { buildNodeMap, resolveWalls, buildNeighbourMapFromResolved } from './geometry/wallGraph.ts';
 import { computeWallFootprint } from './geometry/cornerJoint.ts';
-import { buildWallMesh } from './geometry/wallMesh.ts';
+import { buildWallMeshWithOpenings } from './geometry/wallMesh.ts';
 import { buildFloorMeshes } from './geometry/floorMesh.ts';
 import { aabb, mergeAABB, emptyAABB } from './geometry/polygon.ts';
 
@@ -87,8 +87,17 @@ export function buildScene(input: FloorPlanInput): SceneData {
     return computeWallFootprint(wall, neighbours);
   });
 
-  // 5. Build 3D wall meshes
-  const walls = footprints.map(buildWallMesh);
+  // 5. Build 3D wall meshes (with door/window openings cut in)
+  const openingsByWall = new Map<string, OpeningInput[]>();
+  for (const opening of (input.openings ?? [])) {
+    if (!openingsByWall.has(opening.wallId)) openingsByWall.set(opening.wallId, []);
+    openingsByWall.get(opening.wallId)!.push(opening);
+  }
+  const walls = footprints.map((fp, i) => {
+    const rv = resolved[i]!;
+    const openings = openingsByWall.get(fp.wallId) ?? [];
+    return buildWallMeshWithOpenings(fp, openings, rv.start, rv.end);
+  });
 
   // 6. Build floor meshes
   const floors = buildFloorMeshes(input, nodeMap);
@@ -163,6 +172,7 @@ export type {
   WallInput,
   RoomInput,
   OpeningInput,
+  GlassPaneData,
   WallMesh3D,
   FloorMesh3D,
   SceneData,

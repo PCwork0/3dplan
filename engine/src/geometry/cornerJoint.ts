@@ -43,7 +43,7 @@
  */
 
 import type { Vec2, ResolvedWall, WallFootprint } from '../types.ts';
-import { sub, add, scale, normalize, perpCW, perpCCW, equal, EPSILON } from './vec2.ts';
+import { sub, add, scale, normalize, perpCW, perpCCW } from './vec2.ts';
 import { offsetLineIntersect } from './intersect.ts';
 import type { WallNeighbours } from './wallGraph.ts';
 

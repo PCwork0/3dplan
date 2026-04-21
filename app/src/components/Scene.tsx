@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
-import * as THREE from 'three';
 import { useStore } from '../store/useStore.ts';
 import WallMesh from './WallMesh.tsx';
 import FloorMesh from './FloorMesh.tsx';

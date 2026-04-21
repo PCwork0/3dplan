@@ -17,9 +17,10 @@ export default function FloorMesh({ floor, visible, wireframe }: Props) {
       else         shape.lineTo(x, z);
     });
 
-    // ShapeGeometry lives in the XY plane; rotate -90° around X to lay flat on XZ
+    // ShapeGeometry lives in the XY plane.
+    // rotateX(+π/2) maps shape-Y → world-Z correctly (matches wall Z coords).
     const g = new THREE.ShapeGeometry(shape);
-    g.rotateX(-Math.PI / 2);
+    g.rotateX(Math.PI / 2);
     return g;
   }, [floor]);
 

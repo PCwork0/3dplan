@@ -117,6 +117,16 @@ export interface WallFootprint {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * A single glass pane — used for window openings.
+ * `positions` is a flat array of 6 vertices (2 triangles, non-indexed)
+ * forming a quad in the plane of the wall.
+ */
+export interface GlassPaneData {
+  positions: number[];
+  normals:   number[];
+}
+
+/**
  * Ready-to-use 3D mesh data for a wall.
  *
  * Positions and normals are flat arrays (stride 3) for BufferGeometry:
@@ -139,6 +149,8 @@ export interface WallMesh3D {
   uvs: number[];
   /** Total vertex count (positions.length / 3). */
   vertexCount: number;
+  /** Glass panes for window openings (one per window in this wall). */
+  glassPanes?: GlassPaneData[];
 }
 
 /**

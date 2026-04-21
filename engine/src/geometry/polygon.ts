@@ -5,7 +5,7 @@
  */
 
 import type { Vec2 } from '../types.ts';
-import { sub, cross, add, scale } from './vec2.ts';
+import { sub, cross } from './vec2.ts';
 
 // ─── Winding & area ───────────────────────────────────────────────────────────
 
