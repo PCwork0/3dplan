@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 
 import {
   v2, add, sub, scale, dot, cross, length, normalize,
@@ -7,7 +6,7 @@ import {
 } from '../src/geometry/vec2.ts';
 
 const close = (a: number, b: number, eps = 1e-6) =>
-  assert.ok(Math.abs(a - b) < eps, `Expected ${a} ≈ ${b} (ε=${eps})`);
+  expect(Math.abs(a - b)).toBeLessThan(eps);
 
 describe('vec2', () => {
   describe('perpCW', () => {
@@ -44,10 +43,10 @@ describe('vec2', () => {
       close(cross(v2(1, 0), v2(2, 0)), 0);
     });
     it('is positive for +X × +Z', () => {
-      assert.ok(cross(v2(1, 0), v2(0, 1)) > 0);
+      expect(cross(v2(1, 0), v2(0, 1))).toBeGreaterThan(0);
     });
     it('is negative for +X × −Z', () => {
-      assert.ok(cross(v2(1, 0), v2(0, -1)) < 0);
+      expect(cross(v2(1, 0), v2(0, -1))).toBeLessThan(0);
     });
     it('anticommutes: a×b = −(b×a)', () => {
       const a = v2(2, 3), b = v2(5, 1);
@@ -62,7 +61,7 @@ describe('vec2', () => {
     });
     it('handles zero vector safely (no throw)', () => {
       const v = normalize(v2(0, 0));
-      assert.ok(isFinite(v.x) && isFinite(v.z));
+      expect(Number.isFinite(v.x) && Number.isFinite(v.z)).toBe(true);
     });
   });
 

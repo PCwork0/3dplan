@@ -1,11 +1,10 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import { computeWallFootprint, footprintWidth } from '../src/geometry/cornerJoint.ts';
 import type { ResolvedWall } from '../src/types.ts';
 import type { WallNeighbours } from '../src/geometry/wallGraph.ts';
 
 const close = (a: number, b: number, label = '', eps = 1e-4) =>
-  assert.ok(Math.abs(a - b) < eps, `${label}: Expected ${a} ≈ ${b}`);
+  expect(Math.abs(a - b)).toBeLessThan(eps);
 
 function wall(id: string, sx: number, sz: number, ex: number, ez: number,
   thickness = 0.2, height = 3): ResolvedWall {
@@ -36,16 +35,16 @@ describe('open end — perpendicular cut', () => {
   });
 
   it('vertical south wall (+Z): right side at x=−0.1', () => {
-    // direction = +Z → perpCW({x:0,z:1}) = {x:1, z:0} wait —
-    // perpCW({x,z}) = {x:z, z:-x} → perpCW({x:0,z:1}) = {x:1, z:0}
-    // So right of a south-going wall is +X. right side x = 0 + 0.1 = 0.1
+    // direction = {x:0, z:1} (south)
+    // perpCW({x:0,z:1}) = {x:-z, z:x} = {x:-1, z:0} → west (-X)
+    // Walking south, right hand is west → right offset at x = 0 - 0.1 = -0.1
     const fp = computeWallFootprint(wall('w', 0, 0, 0, 4), none());
-    close(fp.startRight.x, +0.1, 'startRight.x south wall');
+    close(fp.startRight.x, -0.1, 'startRight.x south wall');
   });
 
   it('height is preserved', () => {
     const fp = computeWallFootprint(wall('w', 0, 0, 5, 0, 0.2, 2.7), none());
-    assert.equal(fp.height, 2.7);
+    expect(fp.height).toBe(2.7);
   });
 
   it('footprintWidth approximates thickness', () => {
@@ -73,7 +72,7 @@ describe('90° L-corner miter', () => {
     const fp1 = computeWallFootprint(w1, { incomingAtStart: null, outgoingAtEnd: w2 });
     // endRight should have x > 5 OR z > 0 (it's on the convex outer corner)
     const isOutside = fp1.endRight.x > 5 - 0.01 || fp1.endRight.z > 0 + 0.01;
-    assert.ok(isOutside, 'outer corner should be at or beyond wall extent');
+    expect(isOutside).toBe(true);
   });
 
   it('all four footprint vertices are distinct', () => {
@@ -83,7 +82,7 @@ describe('90° L-corner miter', () => {
       for (let j = i + 1; j < pts.length; j++) {
         const dx = pts[i]!.x - pts[j]!.x;
         const dz = pts[i]!.z - pts[j]!.z;
-        assert.ok(Math.sqrt(dx*dx + dz*dz) > 1e-3, `vertices ${i} and ${j} must not coincide`);
+        expect(Math.sqrt(dx*dx + dz*dz)).toBeGreaterThan(1e-3);
       }
     }
   });

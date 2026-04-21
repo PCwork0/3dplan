@@ -1,10 +1,9 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { buildSceneFromJSON, buildSceneSafe, validateInput } from '../src/index.ts';
-import type { FloorPlanInput } from '../src/types.ts';
+import type { FloorPlanInput, SceneData } from '../src/types.ts';
 
-const close = (a: number, b: number, label = '', eps = 1e-4) =>
-  assert.ok(Math.abs(a - b) < eps, `${label}: Expected ${a} ≈ ${b}`);
+const close = (a: number, b: number, eps = 1e-4) =>
+  expect(Math.abs(a - b)).toBeLessThan(eps);
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -47,17 +46,17 @@ const TWO_ROOMS: FloorPlanInput = {
   ],
 };
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+// ─── Schema validation ────────────────────────────────────────────────────────
 
 describe('schema validation', () => {
   it('accepts a valid single-room plan', () => {
     const r = validateInput(SINGLE_ROOM);
-    assert.ok(r.ok, 'should be valid');
+    expect(r.ok).toBe(true);
   });
 
   it('rejects missing nodes', () => {
     const r = validateInput({ ...SINGLE_ROOM, nodes: undefined });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 
   it('rejects wall referencing unknown node', () => {
@@ -65,8 +64,8 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       walls: [{ id: 'wx', startNode: 'n1', endNode: 'MISSING' }],
     });
-    assert.ok(!r.ok);
-    if (!r.ok) assert.ok(r.errors.some(e => e.message.includes('MISSING')));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some(e => e.message.includes('MISSING'))).toBe(true);
   });
 
   it('rejects self-loop wall', () => {
@@ -74,7 +73,7 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       walls: [{ id: 'wx', startNode: 'n1', endNode: 'n1' }],
     });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 
   it('rejects room with fewer than 3 nodes', () => {
@@ -82,12 +81,12 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       rooms: [{ id: 'r1', name: 'Bad', nodeIds: ['n1', 'n2'] }],
     });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 
   it('rejects units other than "meters"', () => {
     const r = validateInput({ ...SINGLE_ROOM, units: 'feet' });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 
   it('rejects wall thickness < 0.01', () => {
@@ -95,7 +94,7 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       walls: [{ id: 'w1', startNode: 'n1', endNode: 'n2', thickness: 0.001 }],
     });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 
   it('accepts openings with valid t ∈ [0,1]', () => {
@@ -103,7 +102,7 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       openings: [{ id: 'o1', wallId: 'w1', type: 'door', t: 0.5, width: 0.9 }],
     });
-    assert.ok(r.ok, r.ok ? '' : JSON.stringify((r as any).errors));
+    expect(r.ok).toBe(true);
   });
 
   it('rejects opening t outside [0,1]', () => {
@@ -111,83 +110,88 @@ describe('schema validation', () => {
       ...SINGLE_ROOM,
       openings: [{ id: 'o1', wallId: 'w1', type: 'door', t: 1.5, width: 0.9 }],
     });
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 });
 
 // ─── Single room pipeline ─────────────────────────────────────────────────────
 
 describe('buildScene — single room', () => {
-  const result = buildSceneSafe(SINGLE_ROOM);
-  assert.ok(result.ok, `engine failed: ${result.ok ? '' : JSON.stringify((result as any).errors)}`);
-  const scene = (result as Extract<typeof result, { ok: true }>).data;
+  let scene: SceneData;
 
-  it('produces 4 wall meshes', () => assert.equal(scene.walls.length, 4));
-  it('produces 1 floor mesh',  () => assert.equal(scene.floors.length, 1));
-  it('floor name is correct',  () => assert.equal(scene.floors[0]!.name, 'Living Room'));
-  it('floor has 4 polygon vertices', () => assert.equal(scene.floors[0]!.polygon.length, 4));
-  it('floor elevation defaults to 0', () => assert.equal(scene.floors[0]!.elevation, 0));
+  beforeAll(() => {
+    const result = buildSceneSafe(SINGLE_ROOM);
+    expect(result.ok, `engine failed: ${result.ok ? '' : JSON.stringify((result as any).errors)}`).toBe(true);
+    scene = (result as Extract<typeof result, { ok: true }>).data;
+  });
+
+  it('produces 4 wall meshes', () => expect(scene.walls.length).toBe(4));
+  it('produces 1 floor mesh',  () => expect(scene.floors.length).toBe(1));
+  it('floor name is correct',  () => expect(scene.floors[0]!.name).toBe('Living Room'));
+  it('floor has 4 polygon vertices', () => expect(scene.floors[0]!.polygon.length).toBe(4));
+  it('floor elevation defaults to 0', () => expect(scene.floors[0]!.elevation).toBe(0));
 
   it('wall position buffers are non-empty and divisible by 9', () => {
     for (const w of scene.walls) {
-      assert.ok(w.positions.length > 0);
-      assert.equal(w.positions.length % 9, 0,
-        `wall ${w.id}: positions.length (${w.positions.length}) must be divisible by 9`);
+      expect(w.positions.length).toBeGreaterThan(0);
+      expect(w.positions.length % 9, `wall ${w.id}: positions.length (${w.positions.length}) must be divisible by 9`).toBe(0);
     }
   });
 
   it('normals length matches positions length', () => {
     for (const w of scene.walls) {
-      assert.equal(w.normals.length, w.positions.length,
-        `wall ${w.id}: normals/positions mismatch`);
+      expect(w.normals.length, `wall ${w.id}: normals/positions mismatch`).toBe(w.positions.length);
     }
   });
 
   it('uvs have 2/3 the element count of positions', () => {
     for (const w of scene.walls) {
-      assert.equal(w.uvs.length * 3, w.positions.length * 2,
-        `wall ${w.id}: uvs length mismatch`);
+      expect(w.uvs.length * 3, `wall ${w.id}: uvs length mismatch`).toBe(w.positions.length * 2);
     }
   });
 
   it('vertexCount equals positions.length / 3', () => {
     for (const w of scene.walls) {
-      assert.equal(w.vertexCount, w.positions.length / 3);
+      expect(w.vertexCount).toBe(w.positions.length / 3);
     }
   });
 
   it('no NaN or Infinity in any buffer', () => {
     for (const w of scene.walls) {
-      assert.ok(w.positions.every(Number.isFinite), `wall ${w.id} positions contain NaN/Inf`);
-      assert.ok(w.normals.every(Number.isFinite),   `wall ${w.id} normals contain NaN/Inf`);
-      assert.ok(w.uvs.every(Number.isFinite),       `wall ${w.id} uvs contain NaN/Inf`);
+      expect(w.positions.every(Number.isFinite), `wall ${w.id} positions contain NaN/Inf`).toBe(true);
+      expect(w.normals.every(Number.isFinite),   `wall ${w.id} normals contain NaN/Inf`).toBe(true);
+      expect(w.uvs.every(Number.isFinite),       `wall ${w.id} uvs contain NaN/Inf`).toBe(true);
     }
   });
 
   it('bounding box spans ≥ 4.5m in X and ≥ 3.5m in Z', () => {
     const b = scene.bounds;
-    assert.ok(b.maxX - b.minX >= 4.5, `X span: ${b.maxX - b.minX}`);
-    assert.ok(b.maxZ - b.minZ >= 3.5, `Z span: ${b.maxZ - b.minZ}`);
+    expect(b.maxX - b.minX).toBeGreaterThanOrEqual(4.5);
+    expect(b.maxZ - b.minZ).toBeGreaterThanOrEqual(3.5);
   });
 
   it('bounding box maxY equals wall height (3m)', () => {
-    assert.equal(scene.bounds.maxY, 3);
+    expect(scene.bounds.maxY).toBe(3);
   });
 });
 
 // ─── Two-room pipeline ────────────────────────────────────────────────────────
 
 describe('buildScene — two rooms', () => {
-  const result = buildSceneSafe(TWO_ROOMS);
-  assert.ok(result.ok, `two-room engine failed`);
-  const scene = (result as Extract<typeof result, { ok: true }>).data;
+  let scene: SceneData;
 
-  it('produces 7 wall meshes', () => assert.equal(scene.walls.length, 7));
-  it('produces 2 floor meshes', () => assert.equal(scene.floors.length, 2));
+  beforeAll(() => {
+    const result = buildSceneSafe(TWO_ROOMS);
+    expect(result.ok, 'two-room engine failed').toBe(true);
+    scene = (result as Extract<typeof result, { ok: true }>).data;
+  });
+
+  it('produces 7 wall meshes', () => expect(scene.walls.length).toBe(7));
+  it('produces 2 floor meshes', () => expect(scene.floors.length).toBe(2));
 
   it('no NaN in any buffer', () => {
     for (const w of scene.walls) {
-      assert.ok(w.positions.every(Number.isFinite), `wall ${w.id} has NaN positions`);
+      expect(w.positions.every(Number.isFinite), `wall ${w.id} has NaN positions`).toBe(true);
     }
   });
 });
@@ -197,29 +201,28 @@ describe('buildScene — two rooms', () => {
 describe('buildSceneFromJSON', () => {
   it('parses a valid JSON string and builds scene', () => {
     const r = buildSceneFromJSON(JSON.stringify(SINGLE_ROOM));
-    assert.ok(r.ok);
+    expect(r.ok).toBe(true);
   });
 
   it('returns error for invalid JSON syntax', () => {
     const r = buildSceneFromJSON('not json {{{');
-    assert.ok(!r.ok);
-    if (!r.ok) assert.equal(r.errors[0]!.field, 'root');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors[0]!.field).toBe('root');
   });
 
   it('returns validation errors for structurally invalid content', () => {
     const r = buildSceneFromJSON(JSON.stringify({ version: '1.0' }));
-    assert.ok(!r.ok);
+    expect(r.ok).toBe(false);
   });
 });
 
 // ─── Floor mesh geometry ──────────────────────────────────────────────────────
 
 describe('floor mesh polygon winding', () => {
-  const result = buildSceneSafe(SINGLE_ROOM);
-  assert.ok(result.ok);
-  const scene = (result as Extract<typeof result, { ok: true }>).data;
-
   it('floor polygon is CCW (positive signed area)', () => {
+    const result = buildSceneSafe(SINGLE_ROOM);
+    expect(result.ok).toBe(true);
+    const scene = (result as Extract<typeof result, { ok: true }>).data;
     const poly = scene.floors[0]!.polygon;
     const n = poly.length;
     let area = 0;
@@ -228,6 +231,6 @@ describe('floor mesh polygon winding', () => {
       const [x1, z1] = poly[(i + 1) % n]!;
       area += x0 * z1 - x1 * z0;
     }
-    assert.ok(area / 2 > 0, `signed area should be positive (CCW), got ${area / 2}`);
+    expect(area / 2, `signed area should be positive (CCW), got ${area / 2}`).toBeGreaterThan(0);
   });
 });
