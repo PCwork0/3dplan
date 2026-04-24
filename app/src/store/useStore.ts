@@ -90,23 +90,87 @@ export const DEFAULT_JSON = JSON.stringify({
   ],
 }, null, 2);
 
+// ─── Lighting types ───────────────────────────────────────────────────────────
+
+export interface LightingState {
+  /** Primary directional light (sun / key light). */
+  sun: {
+    intensity:   number;   // 0–5
+    elevation:   number;   // 0–90 degrees above horizon
+    azimuth:     number;   // 0–360 degrees compass (0 = north/+Z, 90 = east/+X)
+    temperature: number;   // 1500–9000 K, mapped to RGB
+  };
+  /** Secondary directional light (sky / fill). */
+  sky: {
+    intensity:   number;   // 0–3
+  };
+  /** Scene-wide ambient lift. */
+  ambient: {
+    intensity:   number;   // 0–1
+  };
+}
+
+export type LightingPreset =
+  | 'dawn' | 'morning' | 'noon' | 'afternoon' | 'sunset' | 'night';
+
+export const LIGHTING_PRESETS: Record<LightingPreset, LightingState> = {
+  dawn: {
+    sun:     { intensity: 0.8,  elevation: 6,  azimuth: 88,  temperature: 2100 },
+    sky:     { intensity: 0.25 },
+    ambient: { intensity: 0.06 },
+  },
+  morning: {
+    sun:     { intensity: 1.8,  elevation: 28, azimuth: 68,  temperature: 4200 },
+    sky:     { intensity: 0.50 },
+    ambient: { intensity: 0.10 },
+  },
+  noon: {
+    sun:     { intensity: 2.8,  elevation: 82, azimuth: 180, temperature: 5800 },
+    sky:     { intensity: 0.60 },
+    ambient: { intensity: 0.14 },
+  },
+  afternoon: {
+    sun:     { intensity: 2.2,  elevation: 40, azimuth: 240, temperature: 4500 },
+    sky:     { intensity: 0.55 },
+    ambient: { intensity: 0.12 },
+  },
+  sunset: {
+    sun:     { intensity: 1.2,  elevation: 4,  azimuth: 272, temperature: 2000 },
+    sky:     { intensity: 0.20 },
+    ambient: { intensity: 0.08 },
+  },
+  night: {
+    sun:     { intensity: 0.0,  elevation: 45, azimuth: 0,   temperature: 6000 },
+    sky:     { intensity: 0.08 },
+    ambient: { intensity: 0.04 },
+  },
+};
+
 // ─── Store types ──────────────────────────────────────────────────────────────
 
 interface Layers {
-  walls:     boolean;
-  floors:    boolean;
-  wireframe: boolean;
+  walls:        boolean;
+  floors:       boolean;
+  ceilings:     boolean;
+  labels:       boolean;
+  measurements: boolean;
+  wireframe:    boolean;
 }
 
 interface AppState {
-  sceneData:  SceneData | null;
-  errors:     string[];
-  jsonInput:  string;
-  layers:     Layers;
+  sceneData:    SceneData | null;
+  errors:       string[];
+  jsonInput:    string;
+  layers:       Layers;
+  cameraMode:   'orbit' | 'walk';
+  lighting:     LightingState;
 
-  setJsonInput:  (v: string) => void;
-  buildScene:    () => void;
-  toggleLayer:   (layer: keyof Layers) => void;
+  setJsonInput:    (v: string) => void;
+  buildScene:      () => void;
+  toggleLayer:     (layer: keyof Layers) => void;
+  setCameraMode:   (mode: 'orbit' | 'walk') => void;
+  setLighting:     (patch: Partial<LightingState>) => void;
+  applyPreset:     (preset: LightingPreset) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -120,10 +184,12 @@ const buildFromJson = (json: string): { data: SceneData | null; errors: string[]
 const initial = buildFromJson(DEFAULT_JSON);
 
 export const useStore = create<AppState>((set, get) => ({
-  sceneData:  initial.data,
-  errors:     initial.errors,
-  jsonInput:  DEFAULT_JSON,
-  layers: { walls: true, floors: true, wireframe: false },
+  sceneData:   initial.data,
+  errors:      initial.errors,
+  jsonInput:   DEFAULT_JSON,
+  cameraMode:  'orbit',
+  layers:      { walls: true, floors: true, ceilings: false, labels: true, measurements: false, wireframe: false },
+  lighting:    LIGHTING_PRESETS.afternoon,   // default: nice afternoon light
 
   setJsonInput: (v) => set({ jsonInput: v }),
 
@@ -134,4 +200,17 @@ export const useStore = create<AppState>((set, get) => ({
 
   toggleLayer: (layer) =>
     set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })),
+
+  setCameraMode: (mode) => set({ cameraMode: mode }),
+
+  setLighting: (patch) =>
+    set((s) => ({
+      lighting: {
+        sun:     { ...s.lighting.sun,     ...(patch.sun     ?? {}) },
+        sky:     { ...s.lighting.sky,     ...(patch.sky     ?? {}) },
+        ambient: { ...s.lighting.ambient, ...(patch.ambient ?? {}) },
+      },
+    })),
+
+  applyPreset: (preset) => set({ lighting: LIGHTING_PRESETS[preset] }),
 }));

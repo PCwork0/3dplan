@@ -166,12 +166,40 @@ export interface FloorMesh3D {
   polygon: [number, number][];
   /** Y elevation of the floor surface. */
   elevation: number;
+  /**
+   * Arithmetic centroid of the polygon in XZ: [x, z].
+   * Useful for room-label placement, furniture auto-layout, etc.
+   */
+  centroid: [number, number];
+}
+
+/**
+ * Dimension data for a single wall — used to render measurement overlays.
+ */
+export interface WallMeasurement {
+  wallId:  string;
+  /** Centreline length in metres. */
+  length:  number;
+  /** 3D X of the wall centreline midpoint. */
+  midX:    number;
+  /** 3D Y of the measurement label (half wall height). */
+  midY:    number;
+  /** 3D Z of the wall centreline midpoint. */
+  midZ:    number;
+  /** Unit vector X component perpendicular to wall (outward, for label offset). */
+  labelDX: number;
+  /** Unit vector Z component perpendicular to wall (outward, for label offset). */
+  labelDZ: number;
 }
 
 /** The complete 3D scene data produced by the engine. */
 export interface SceneData {
   walls: WallMesh3D[];
   floors: FloorMesh3D[];
+  /** Ceiling meshes — same polygon as floors, at wall-top elevation. */
+  ceilings: FloorMesh3D[];
+  /** Dimension data for each wall (length, midpoint, label offset direction). */
+  measurements: WallMeasurement[];
   /** Axis-aligned bounding box of the entire plan (metres). */
   bounds: {
     minX: number; maxX: number;

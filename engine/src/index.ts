@@ -56,7 +56,8 @@ import { validateInput, parseAndValidate } from './schema.ts';
 import { buildNodeMap, resolveWalls, buildNeighbourMapFromResolved } from './geometry/wallGraph.ts';
 import { computeWallFootprint } from './geometry/cornerJoint.ts';
 import { buildWallMeshWithOpenings } from './geometry/wallMesh.ts';
-import { buildFloorMeshes } from './geometry/floorMesh.ts';
+import { buildFloorMeshes, buildCeilingMeshes } from './geometry/floorMesh.ts';
+import { buildWallMeasurements } from './geometry/measurements.ts';
 import { aabb, mergeAABB, emptyAABB } from './geometry/polygon.ts';
 
 // ─── Core pipeline ────────────────────────────────────────────────────────────
@@ -113,9 +114,17 @@ export function buildScene(input: FloorPlanInput): SceneData {
     if (fp.height > maxY) maxY = fp.height;
   }
 
+  // 8. Build ceiling meshes (same polygons as floors, at wall-top elevation)
+  const ceilings = buildCeilingMeshes(input, nodeMap, maxY);
+
+  // 9. Build wall measurements
+  const measurements = buildWallMeasurements(resolved);
+
   return {
     walls,
     floors,
+    ceilings,
+    measurements,
     bounds: {
       minX: isFinite(sceneBounds.minX) ? sceneBounds.minX : 0,
       maxX: isFinite(sceneBounds.maxX) ? sceneBounds.maxX : 0,
@@ -175,6 +184,7 @@ export type {
   GlassPaneData,
   WallMesh3D,
   FloorMesh3D,
+  WallMeasurement,
   SceneData,
   EngineResult,
   ValidationError,
