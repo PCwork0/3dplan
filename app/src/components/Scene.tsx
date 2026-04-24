@@ -44,9 +44,9 @@ import RoomLabels from './RoomLabels.tsx';
 import WallMeasurements from './WallMeasurements.tsx';
 
 const EYE_HEIGHT  = 1.65;  // metres — average eye height
-const WALK_SPEED  = 5.5;   // m/s
-const WALK_FOV    = 72;    // degrees — wider in walk mode for immersion
-const ORBIT_FOV   = 45;    // degrees — tighter in orbit for architectural look
+const WALK_SPEED  = 1.4;   // m/s  — comfortable indoor walking pace
+const WALK_FOV    = 75;    // degrees — wider in walk mode for immersion
+const ORBIT_FOV   = 60;    // degrees — wider overview so the house fills the screen
 
 // ─── Post-processing pipeline ─────────────────────────────────────────────────
 
@@ -86,11 +86,10 @@ function OrbitCameraRig() {
   useEffect(() => {
     if (!sceneData || fitted.current) return;
     const { minX, maxX, minZ, maxZ, maxY } = sceneData.bounds;
-    const cx   = (minX + maxX) / 2;
-    const cz   = (minZ + maxZ) / 2;
-    const span = Math.max(maxX - minX, maxZ - minZ, maxY) * 1.4;
-    camera.position.set(cx + span * 0.55, span * 0.65, cz + span * 0.85);
-    camera.lookAt(cx, maxY * 0.3, cz);
+    const span = Math.max(maxX - minX, maxZ - minZ, maxY) * 1.1; // tighter fit
+    // Geometry is centred at world origin by FloorPlanScene's group offset
+    camera.position.set(span * 0.45, span * 0.50, span * 0.70);
+    camera.lookAt(0, maxY * 0.25, 0);
     (camera as THREE.PerspectiveCamera).fov = ORBIT_FOV;
     (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
     fitted.current = true;
@@ -187,8 +186,14 @@ function FloorPlanScene() {
 
   if (!sceneData) return null;
 
+  // Shift the entire house so its bounding-box centre sits at world origin (0, 0, 0).
+  // Without this, plans with non-zero node coordinates render offset to one side.
+  const { minX, maxX, minZ, maxZ } = sceneData.bounds;
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+
   return (
-    <>
+    <group position={[-cx, 0, -cz]}>
       {sceneData.walls.map((wall) => (
         <WallMesh key={wall.id} wall={wall} visible={layers.walls} wireframe={layers.wireframe} />
       ))}
@@ -202,9 +207,11 @@ function FloorPlanScene() {
         floors={sceneData.floors}
         wallHeight={sceneData.bounds.maxY}
         visible={layers.labels}
+        offsetX={-cx}
+        offsetZ={-cz}
       />
       <WallMeasurements measurements={sceneData.measurements} visible={layers.measurements} />
-    </>
+    </group>
   );
 }
 

@@ -127,6 +127,16 @@ export interface GlassPaneData {
 }
 
 /**
+ * Wood reveal geometry for one door opening.
+ * Contains three quads (left jamb, right jamb, top lintel) rendered
+ * with a wood material so the door edge is visually distinct from the wall.
+ */
+export interface DoorFrameData {
+  positions: number[];
+  normals:   number[];
+}
+
+/**
  * Ready-to-use 3D mesh data for a wall.
  *
  * Positions and normals are flat arrays (stride 3) for BufferGeometry:
@@ -151,6 +161,8 @@ export interface WallMesh3D {
   vertexCount: number;
   /** Glass panes for window openings (one per window in this wall). */
   glassPanes?: GlassPaneData[];
+  /** Wood reveal frames for door openings (one per door in this wall). */
+  doorFrames?: DoorFrameData[];
 }
 
 /**

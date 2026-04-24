@@ -33,7 +33,7 @@
  *   Bottom              : 0,3,2  0,2,1
  */
 
-import type { WallFootprint, WallMesh3D, GlassPaneData, Vec2, OpeningInput } from '../types.ts';
+import type { WallFootprint, WallMesh3D, GlassPaneData, DoorFrameData, Vec2, OpeningInput } from '../types.ts';
 
 // ─── Internal 3D vector ───────────────────────────────────────────────────────
 
@@ -258,6 +258,70 @@ function appendSegment(
   pushQuad(m, seg[0]!, seg[1]!, seg[2]!, seg[3]!, [u0,0],[u1,0],[u1,1],[u0,1]);      // bottom
 }
 
+// ─── Door frame reveal builder ────────────────────────────────────────────────
+
+/**
+ * Build the three wood reveal quads (left jamb, right jamb, top lintel)
+ * for one door opening.
+ *
+ * The reveals sit in the wall cross-section plane — the exposed wall thickness
+ * edge that's visible when you look through or along the door opening.
+ * Rendered with a wood material on top of the wall caps (polygon-offset handles
+ * any micro z-fighting).
+ */
+function buildDoorReveal(
+  fp:  WallFootprint,
+  gap: { t0: number; t1: number; yBottom: number; yTop: number },
+): DoorFrameData {
+  const m: FlatMesh = { positions: [], normals: [], uvs: [] };
+
+  /** 3D point on the right face of the wall at parameter t, height y. */
+  const rPt = (t: number, y: number): V3 => {
+    const p = lerpV(fp.startRight, fp.endRight, t);
+    return v3(p.x, y, p.z);
+  };
+  /** 3D point on the left face of the wall at parameter t, height y. */
+  const lPt = (t: number, y: number): V3 => {
+    const p = lerpV(fp.startLeft, fp.endLeft, t);
+    return v3(p.x, y, p.z);
+  };
+
+  // ── Left jamb — vertical reveal quad at the left edge (t0) of the gap ──
+  // Corners (viewed from inside the gap, CCW):
+  //   right-face bottom → right-face top → left-face top → left-face bottom
+  {
+    const bl = rPt(gap.t0, gap.yBottom);
+    const tl = rPt(gap.t0, gap.yTop);
+    const tr = lPt(gap.t0, gap.yTop);
+    const br = lPt(gap.t0, gap.yBottom);
+    pushQuad(m, bl, tl, tr, br, [0, 0], [0, 1], [1, 1], [1, 0]);
+    pushQuad(m, br, tr, tl, bl, [0, 0], [1, 0], [1, 1], [0, 1]); // back side
+  }
+
+  // ── Right jamb — vertical reveal quad at the right edge (t1) of the gap ──
+  {
+    const bl = lPt(gap.t1, gap.yBottom);
+    const tl = lPt(gap.t1, gap.yTop);
+    const tr = rPt(gap.t1, gap.yTop);
+    const br = rPt(gap.t1, gap.yBottom);
+    pushQuad(m, bl, tl, tr, br, [0, 0], [0, 1], [1, 1], [1, 0]);
+    pushQuad(m, br, tr, tl, bl, [0, 0], [1, 0], [1, 1], [0, 1]); // back side
+  }
+
+  // ── Top lintel — horizontal reveal quad spanning the full gap width ──
+  // The underside of the wall above the door (y = yTop, across wall thickness)
+  {
+    const a = rPt(gap.t0, gap.yTop);
+    const b = rPt(gap.t1, gap.yTop);
+    const c = lPt(gap.t1, gap.yTop);
+    const d = lPt(gap.t0, gap.yTop);
+    pushQuad(m, a, b, c, d, [0, 0], [1, 0], [1, 1], [0, 1]);
+    pushQuad(m, d, c, b, a, [0, 1], [1, 1], [1, 0], [0, 0]); // back side
+  }
+
+  return { positions: m.positions, normals: m.normals };
+}
+
 /**
  * Build a WallMesh3D with geometry gaps for door and window openings.
  * Falls back to buildWallMesh when there are no openings.
@@ -294,6 +358,7 @@ export function buildWallMeshWithOpenings(
 
   const m: FlatMesh = { positions: [], normals: [], uvs: [] };
   const glassPanes: GlassPaneData[] = [];
+  const doorFrames: DoorFrameData[] = [];
   let prev = 0;
 
   for (const gap of gaps) {
@@ -310,6 +375,11 @@ export function buildWallMeshWithOpenings(
     // Lintel (above opening)
     if (gap.yTop < fp.height - 1e-6) {
       appendSegment(m, fp, gap.t0, gap.t1, gap.yTop, fp.height, wallLen);
+    }
+
+    // Wood reveal frame for doors
+    if (!gap.isWindow) {
+      doorFrames.push(buildDoorReveal(fp, gap));
     }
 
     // Glass pane for windows — a thin quad at the wall centreline
@@ -348,6 +418,7 @@ export function buildWallMeshWithOpenings(
     normals:     m.normals,
     uvs:         m.uvs,
     vertexCount: m.positions.length / 3,
-    ...(glassPanes.length > 0 ? { glassPanes } : {}),
+    ...(glassPanes.length  > 0 ? { glassPanes }  : {}),
+    ...(doorFrames.length  > 0 ? { doorFrames }  : {}),
   };
 }

@@ -11,6 +11,7 @@ import SceneWrapper, { CameraModeButton } from './components/Scene.tsx';
 import LayerControls from './components/LayerControls.tsx';
 import LightingPanel from './components/LightingPanel.tsx';
 import JsonPanel from './components/JsonPanel.tsx';
+import PlanExtractor from './components/PlanExtractor/index.tsx';
 import { useStore } from './store/useStore.ts';
 
 // ─── Shared tokens ────────────────────────────────────────────────────────────
@@ -206,6 +207,20 @@ export default function App() {
 
         {/* ── Lighting controls ── */}
         <LightingPanel />
+
+        {/* ── Divider ── */}
+        <div style={{ borderTop: `1px solid ${C.border}` }} />
+
+        {/* ── Image → JSON extractor ── */}
+        <PlanExtractor
+          onSuccess={(json) => {
+            useStore.getState().setJsonInput(json);
+            useStore.getState().buildScene();
+          }}
+        />
+
+        {/* ── Divider ── */}
+        <div style={{ borderTop: `1px solid ${C.border}` }} />
 
         {/* ── JSON editor (takes remaining space) ── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>

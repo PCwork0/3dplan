@@ -1,0 +1,175 @@
+{
+  "version": "1.0",
+  "units": "meters",
+  "nodes": [
+    {
+      "id": "n1",
+      "x": 0.98,
+      "z": 5.84
+    },
+    {
+      "id": "n2",
+      "x": 9.73,
+      "z": 5.84
+    },
+    {
+      "id": "n3",
+      "x": 0.98,
+      "z": 1.14
+    },
+    {
+      "id": "n4",
+      "x": 9.73,
+      "z": 1.14
+    },
+    {
+      "id": "n5",
+      "x": 0.98,
+      "z": 9.64
+    },
+    {
+      "id": "n6",
+      "x": 9.73,
+      "z": 9.64
+    },
+    {
+      "id": "n7",
+      "x": 3.68,
+      "z": 5.87
+    },
+    {
+      "id": "n8",
+      "x": 3.68,
+      "z": 9.54
+    },
+    {
+      "id": "n9",
+      "x": 4.29,
+      "z": 3.54
+    },
+    {
+      "id": "n10",
+      "x": 6.43,
+      "z": 3.55
+    },
+    {
+      "id": "n11",
+      "x": 7.45,
+      "z": 7.73
+    },
+    {
+      "id": "n12",
+      "x": 1.86,
+      "z": 7.82
+    },
+    {
+      "id": "n13",
+      "x": 1.07,
+      "z": 7.83
+    },
+    {
+      "id": "n14",
+      "x": 3.68,
+      "z": 7.79
+    }
+  ],
+  "walls": [
+    {
+      "id": "w1",
+      "startNode": "n1",
+      "endNode": "n2",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w2",
+      "startNode": "n3",
+      "endNode": "n4",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w3",
+      "startNode": "n5",
+      "endNode": "n6",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w4",
+      "startNode": "n3",
+      "endNode": "n5",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w5",
+      "startNode": "n4",
+      "endNode": "n6",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w6",
+      "startNode": "n7",
+      "endNode": "n8",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w7",
+      "startNode": "n9",
+      "endNode": "n10",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w8",
+      "startNode": "n11",
+      "endNode": "n12",
+      "thickness": 0.25,
+      "height": 3.0
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r1",
+      "name": "Living Room",
+      "nodeIds": [
+        "n9",
+        "n1",
+        "n7",
+        "n2",
+        "n10",
+        "n4",
+        "n3"
+      ]
+    },
+    {
+      "id": "r2",
+      "name": "Bathroom",
+      "nodeIds": [
+        "n13",
+        "n12",
+        "n5",
+        "n8",
+        "n14",
+        "n7",
+        "n1"
+      ]
+    },
+    {
+      "id": "r3",
+      "name": "Bedroom",
+      "nodeIds": [
+        "n14",
+        "n8",
+        "n6",
+        "n11",
+        "n2",
+        "n7"
+      ]
+    }
+  ],
+  "openings": []
+}

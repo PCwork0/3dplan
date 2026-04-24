@@ -1,0 +1,193 @@
+{
+  "version": "1.0",
+  "units": "meters",
+  "nodes": [
+    {
+      "id": "n1",
+      "x": 0.89,
+      "z": 5.89
+    },
+    {
+      "id": "n2",
+      "x": 9.82,
+      "z": 5.89
+    },
+    {
+      "id": "n3",
+      "x": 0.89,
+      "z": 9.66
+    },
+    {
+      "id": "n4",
+      "x": 9.82,
+      "z": 9.72
+    },
+    {
+      "id": "n5",
+      "x": 0.89,
+      "z": 1.04
+    },
+    {
+      "id": "n6",
+      "x": 9.82,
+      "z": 1.04
+    },
+    {
+      "id": "n7",
+      "x": 9.68,
+      "z": 0.91
+    },
+    {
+      "id": "n8",
+      "x": 9.68,
+      "z": 9.81
+    },
+    {
+      "id": "n9",
+      "x": 1.02,
+      "z": 9.81
+    },
+    {
+      "id": "n10",
+      "x": 3.83,
+      "z": 5.94
+    },
+    {
+      "id": "n11",
+      "x": 3.99,
+      "z": 9.79
+    },
+    {
+      "id": "n12",
+      "x": 1.72,
+      "z": 7.76
+    },
+    {
+      "id": "n13",
+      "x": 7.39,
+      "z": 7.76
+    },
+    {
+      "id": "n14",
+      "x": 6.33,
+      "z": 3.44
+    },
+    {
+      "id": "n15",
+      "x": 4.38,
+      "z": 3.47
+    },
+    {
+      "id": "n16",
+      "x": 1.0,
+      "z": 7.76
+    },
+    {
+      "id": "n17",
+      "x": 3.91,
+      "z": 7.76
+    }
+  ],
+  "walls": [
+    {
+      "id": "w1",
+      "startNode": "n1",
+      "endNode": "n2",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w2",
+      "startNode": "n3",
+      "endNode": "n4",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w3",
+      "startNode": "n5",
+      "endNode": "n6",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w4",
+      "startNode": "n7",
+      "endNode": "n8",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w5",
+      "startNode": "n5",
+      "endNode": "n9",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w6",
+      "startNode": "n10",
+      "endNode": "n11",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w7",
+      "startNode": "n12",
+      "endNode": "n13",
+      "thickness": 0.25,
+      "height": 3.0
+    },
+    {
+      "id": "w8",
+      "startNode": "n14",
+      "endNode": "n15",
+      "thickness": 0.15,
+      "height": 3.0
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r1",
+      "name": "Living Room",
+      "nodeIds": [
+        "n15",
+        "n1",
+        "n10",
+        "n2",
+        "n14",
+        "n6",
+        "n7",
+        "n5"
+      ]
+    },
+    {
+      "id": "r2",
+      "name": "Bedroom",
+      "nodeIds": [
+        "n3",
+        "n9",
+        "n11",
+        "n17",
+        "n10",
+        "n1",
+        "n12",
+        "n16"
+      ]
+    },
+    {
+      "id": "r3",
+      "name": "Kitchen",
+      "nodeIds": [
+        "n11",
+        "n8",
+        "n4",
+        "n13",
+        "n2",
+        "n10",
+        "n17"
+      ]
+    }
+  ],
+  "openings": []
+}
