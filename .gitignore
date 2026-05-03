@@ -17,3 +17,15 @@ engine/src/geometry/floorMesh.ts
 engine/src/geometry/polygon.ts
 engine/src/geometry/wallGraph.ts
 engine/src/geometry/wallMesh.ts
+tools/cv/__pycache__
+app/vite.config.test.mjs.timestamp-1777803478688-79041b3f2e38.mjs
+app/vite.config.ts.timestamp-1777803202697-e415d496fded4.mjs
+**/node_modules/
+**/**/node_modules/
+node_modules/
+dist/
+build/
+*.log
+*.lock
+*.tsbuildinfo
+engine/node_modules/

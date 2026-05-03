@@ -82,11 +82,16 @@ export default function App() {
     sceneData:  s.sceneData,
     cameraMode: s.cameraMode,
   }));
+  // Theatre Studio is initialized in main.tsx (must run before any
+  // module calls getProject()). See top of main.tsx for the rationale.
 
   return (
     <div style={{
       display:    'flex',
       height:     '100vh',
+      width:      '100%',  // CRITICAL: without this the flex item collapses
+      flex:       1,       //   to its content width (≈ aside) and the Canvas
+      minWidth:   0,       //   inside <main> ends up 0px wide → blank screen.
       overflow:   'hidden',
       background: C.bg,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -148,7 +153,9 @@ export default function App() {
         }}>
           {cameraMode === 'orbit'
             ? 'Drag · Scroll · Right-drag to pan'
-            : 'Click scene → mouse to look · WASD to move · ESC to pause'}
+            : cameraMode === 'walk'
+            ? 'Click scene → mouse to look · WASD to move · ESC to pause'
+            : '🎬 Cinematic camera tour · Theatre.js timeline · scrub or pause anytime'}
         </p>
 
         {/* ── Divider ── */}

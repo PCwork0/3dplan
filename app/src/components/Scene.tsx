@@ -28,7 +28,6 @@ import {
 } from '@react-three/drei';
 import {
   EffectComposer,
-  SSAO,
   Bloom,
   ToneMapping,
   Vignette,
@@ -42,6 +41,11 @@ import FloorMesh from './FloorMesh.tsx';
 import CeilingMesh from './CeilingMesh.tsx';
 import RoomLabels from './RoomLabels.tsx';
 import WallMeasurements from './WallMeasurements.tsx';
+import TheatreTour, { seekTour } from './TheatreTour.tsx';
+import { TOUR_DURATION, activeCaption } from '../tour/keyframes.ts';
+import TourControls from './TourControls.tsx';
+import RecordingPanel from './RecordingPanel.tsx';
+import { tourRecorder } from '../tour/tourRecorder.ts';
 
 const EYE_HEIGHT  = 1.65;  // metres — average eye height
 const WALK_SPEED  = 1.4;   // m/s  — comfortable indoor walking pace
@@ -52,9 +56,10 @@ const ORBIT_FOV   = 60;    // degrees — wider overview so the house fills the 
 
 function PostFX() {
   return (
-    <EffectComposer multisampling={0} disableNormalPass={false}>
+    <EffectComposer>
       <SMAA />
-      <SSAO
+      {/* SSAO disabled temporarily — requires NormalPass setup */}
+      {/* <SSAO
         samples={32}
         radius={0.35}
         intensity={22}
@@ -62,7 +67,7 @@ function PostFX() {
         bias={0.025}
         resolutionScale={0.75}
         depthAwareUpsampling
-      />
+      /> */}
       <Bloom
         luminanceThreshold={0.85}
         luminanceSmoothing={0.08}
@@ -228,6 +233,17 @@ function SceneContents({ onLock, onUnlock }: SceneContentsProps) {
     lighting:   s.lighting,
   }));
 
+  const { camera } = useThree();
+
+  // Capture frames during recording AND apply playback to camera (when active).
+  // Both must run inside the Canvas; doing it here avoids R3F-hook errors in
+  // the DOM-side RecordingPanel.
+  useFrame((_, dt) => {
+    const cam = camera as THREE.PerspectiveCamera;
+    tourRecorder.captureFrame(cam);
+    tourRecorder.applyToCamera(cam, dt);
+  });
+
   const { sun, sky, ambient } = lighting;
   const sunPos   = sunPosition(sun.elevation, sun.azimuth, 40);
   const sunColor = tempToHex(sun.temperature);
@@ -291,8 +307,8 @@ function SceneContents({ onLock, onUnlock }: SceneContentsProps) {
         infiniteGrid
       />
 
-      {/* ── Camera controls — orbit OR walk, never both ── */}
-      {cameraMode === 'orbit' ? (
+      {/* ── Camera controls — orbit / walk / theatre-tour, mutually exclusive ── */}
+      {cameraMode === 'orbit' && (
         <>
           <OrbitCameraRig />
           <OrbitControls
@@ -305,9 +321,11 @@ function SceneContents({ onLock, onUnlock }: SceneContentsProps) {
             zoomSpeed={0.9}
           />
         </>
-      ) : (
+      )}
+      {cameraMode === 'walk' && (
         <WalkControls onLock={onLock} onUnlock={onUnlock} />
       )}
+      {cameraMode === 'tour' && <TheatreTour />}
 
       <PostFX />
 
@@ -509,41 +527,204 @@ function CanvasScene({ onLock, onUnlock }: CanvasSceneProps) {
 // ─── Mode toggle button (used in App.tsx sidebar, exported separately) ────────
 
 export function CameraModeButton() {
-  const { cameraMode, setCameraMode } = useStore((s) => ({
-    cameraMode:    s.cameraMode,
-    setCameraMode: s.setCameraMode,
+  const { cameraMode, setCameraMode, setTourPlaying } = useStore((s) => ({
+    cameraMode:     s.cameraMode,
+    setCameraMode:  s.setCameraMode,
+    setTourPlaying: s.setTourPlaying,
   }));
 
-  const isWalk = cameraMode === 'walk';
+  const modes: { id: 'orbit' | 'walk' | 'tour'; icon: string; label: string }[] = [
+    { id: 'orbit', icon: '🔭', label: 'Orbit' },
+    { id: 'walk',  icon: '🚶', label: 'Walk'  },
+    { id: 'tour',  icon: '🎬', label: 'Tour'  },
+  ];
 
   return (
-    <button
-      onClick={() => setCameraMode(isWalk ? 'orbit' : 'walk')}
-      title={isWalk ? 'Switch to Orbit view' : 'Enter first-person Walk mode'}
-      style={{
+    <div style={{
+      display:       'grid',
+      gridTemplateColumns: '1fr 1fr 1fr',
+      gap:           4,
+      padding:       4,
+      borderRadius:  10,
+      background:    'rgba(255,255,255,0.03)',
+      border:        '1px solid #242235',
+    }}>
+      {modes.map((m) => {
+        const active = cameraMode === m.id;
+        return (
+          <button
+            key={m.id}
+            onClick={() => {
+              setCameraMode(m.id);
+              if (m.id === 'tour')      setTourPlaying(true);
+              else                      setTourPlaying(false);
+            }}
+            title={`Switch to ${m.label} view`}
+            style={{
+              display:        'flex',
+              flexDirection:  'column',
+              alignItems:     'center',
+              justifyContent: 'center',
+              gap:            2,
+              padding:        '8px 4px',
+              borderRadius:   8,
+              border:         'none',
+              background:     active
+                ? 'linear-gradient(135deg, rgba(60,60,200,0.30), rgba(80,40,180,0.25))'
+                : 'transparent',
+              color:          active ? '#b0aef8' : '#6060a0',
+              cursor:         'pointer',
+              fontSize:       11,
+              fontWeight:     700,
+              letterSpacing:  '0.04em',
+              transition:     'all 0.16s ease',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>{m.icon}</span>
+            {m.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Tour HUD — cinematic letterbox + caption + transport ────────────────────
+
+function TourHUD() {
+  const { tourPlaying, tourTime, setTourPlaying } = useStore((s) => ({
+    tourPlaying:    s.tourPlaying,
+    tourTime:       s.tourTime,
+    setTourPlaying: s.setTourPlaying,
+  }));
+
+  const progress = Math.min(1, tourTime / TOUR_DURATION);
+  const caption  = activeCaption(tourTime);
+  const ended    = tourTime >= TOUR_DURATION - 0.05 && !tourPlaying;
+
+  return (
+    <>
+      {/* Cinematic letterbox bars */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 64,
+        background: 'linear-gradient(to bottom, #000 60%, transparent)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 120,
+        background: 'linear-gradient(to top, #000 30%, transparent)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Title chip */}
+      <div style={{
+        position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+        fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase',
+        color: '#9090c0', fontWeight: 700, pointerEvents: 'none',
+        textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+      }}>
+        🎬  House Tour · powered by Theatre.js
+      </div>
+
+      {/* Caption */}
+      <div style={{
+        position:   'absolute', bottom: 70, left: '50%',
+        transform:  'translateX(-50%)',
+        fontSize:   18, fontWeight: 600, color: '#f0eef8',
+        textAlign:  'center', maxWidth: '70%',
+        textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+        pointerEvents: 'none',
+        opacity:    caption ? 1 : 0,
+        transition: 'opacity 0.3s',
+      }}>
+        {caption}
+      </div>
+
+      {/* Transport bar */}
+      <div style={{
+        position:       'absolute',
+        bottom:         24,
+        left:           '50%',
+        transform:      'translateX(-50%)',
+        background:     'rgba(8,8,18,0.72)',
+        backdropFilter: 'blur(14px)',
+        borderRadius:   24,
+        border:         '1px solid rgba(120,120,200,0.18)',
+        padding:        '8px 14px',
         display:        'flex',
         alignItems:     'center',
-        justifyContent: 'center',
-        gap:            8,
-        width:          '100%',
-        padding:        '10px 12px',
-        borderRadius:   10,
-        border:         `1px solid ${isWalk ? '#5050cc' : '#242235'}`,
-        background:     isWalk
-          ? 'linear-gradient(135deg, rgba(60,60,200,0.25), rgba(80,40,180,0.20))'
-          : 'rgba(255,255,255,0.03)',
-        color:          isWalk ? '#b0aef8' : '#6060a0',
-        cursor:         'pointer',
-        fontSize:       12,
-        fontWeight:     700,
-        letterSpacing:  '0.04em',
-        transition:     'all 0.18s ease',
-      }}
-    >
-      <span style={{ fontSize: 16 }}>{isWalk ? '🚶' : '🔭'}</span>
-      {isWalk ? 'Walk Mode  ON' : 'Walk Mode'}
-    </button>
+        gap:            14,
+        minWidth:       420,
+        boxShadow:      '0 6px 28px rgba(0,0,0,0.55)',
+      }}>
+        {/* Play / Pause / Restart */}
+        <button
+          onClick={() => {
+            if (ended) {
+              seekTour(0);
+              setTourPlaying(true);
+            } else {
+              setTourPlaying(!tourPlaying);
+            }
+          }}
+          style={{
+            width: 36, height: 36, borderRadius: '50%',
+            border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, #6060ee, #9060e0)',
+            color: '#fff', fontSize: 14, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+          title={ended ? 'Restart tour' : tourPlaying ? 'Pause' : 'Play'}
+        >
+          {ended ? '↻' : tourPlaying ? '❚❚' : '▶'}
+        </button>
+
+        {/* Scrub bar */}
+        <div
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const u    = (e.clientX - rect.left) / rect.width;
+            seekTour(u * TOUR_DURATION);
+          }}
+          style={{
+            flex: 1, height: 4, background: '#23223a',
+            borderRadius: 2, cursor: 'pointer', position: 'relative',
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 0, left: 0, height: '100%',
+            width: `${progress * 100}%`,
+            background: 'linear-gradient(90deg, #6060ee, #c060e0)',
+            borderRadius: 2,
+            transition: 'width 0.05s linear',
+          }} />
+          <div style={{
+            position: 'absolute',
+            top: '50%', transform: 'translate(-50%, -50%)',
+            left: `${progress * 100}%`,
+            width: 12, height: 12, borderRadius: '50%',
+            background: '#fff',
+            boxShadow: '0 0 8px rgba(160,140,240,0.85)',
+          }} />
+        </div>
+
+        {/* Timer */}
+        <div style={{
+          fontFamily: 'monospace', fontSize: 11, color: '#a0a0d0',
+          minWidth: 64, textAlign: 'right', flexShrink: 0,
+        }}>
+          {formatTime(tourTime)} / {formatTime(TOUR_DURATION)}
+        </div>
+      </div>
+    </>
   );
+}
+
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
 // ─── Public export ────────────────────────────────────────────────────────────
@@ -578,6 +759,17 @@ export default function SceneWrapper() {
       {cameraMode === 'walk' && (
         <WalkOverlay isLocked={isLocked} onExit={exitWalkMode} />
       )}
+
+      {/* Theatre-driven tour HUD */}
+      {cameraMode === 'tour' && (
+        <>
+          <TourHUD />
+          <TourControls />
+        </>
+      )}
+
+      {/* Recording panel (visible in walk/orbit modes) */}
+      {(cameraMode === 'walk' || cameraMode === 'orbit') && <RecordingPanel />}
     </div>
   );
 }

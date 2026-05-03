@@ -157,20 +157,28 @@ interface Layers {
   wireframe:    boolean;
 }
 
+export type CameraMode = 'orbit' | 'walk' | 'tour';
+
 interface AppState {
   sceneData:    SceneData | null;
   errors:       string[];
   jsonInput:    string;
   layers:       Layers;
-  cameraMode:   'orbit' | 'walk';
+  cameraMode:   CameraMode;
   lighting:     LightingState;
+
+  // Tour transport state
+  tourPlaying:  boolean;
+  tourTime:     number;
 
   setJsonInput:    (v: string) => void;
   buildScene:      () => void;
   toggleLayer:     (layer: keyof Layers) => void;
-  setCameraMode:   (mode: 'orbit' | 'walk') => void;
+  setCameraMode:   (mode: CameraMode) => void;
   setLighting:     (patch: Partial<LightingState>) => void;
   applyPreset:     (preset: LightingPreset) => void;
+  setTourPlaying:  (playing: boolean) => void;
+  setTourTime:     (t: number) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -190,6 +198,8 @@ export const useStore = create<AppState>((set, get) => ({
   cameraMode:  'orbit',
   layers:      { walls: true, floors: true, ceilings: false, labels: true, measurements: false, wireframe: false },
   lighting:    LIGHTING_PRESETS.afternoon,   // default: nice afternoon light
+  tourPlaying: false,
+  tourTime:    0,
 
   setJsonInput: (v) => set({ jsonInput: v }),
 
@@ -213,4 +223,7 @@ export const useStore = create<AppState>((set, get) => ({
     })),
 
   applyPreset: (preset) => set({ lighting: LIGHTING_PRESETS[preset] }),
+
+  setTourPlaying: (playing) => set({ tourPlaying: playing }),
+  setTourTime:    (t)       => set({ tourTime: t }),
 }));

@@ -19,4 +19,19 @@ export default defineConfig({
       '@engine': path.resolve(__dirname, '../engine/src'),
     },
   },
+  // Use a fresh cache location outside the default `node_modules/.vite`
+  // so a stale/locked dep cache never blocks `npm run dev`. If the deps
+  // ever look corrupted, just delete this folder and restart.
+  cacheDir: path.resolve(__dirname, 'node_modules/.vite-cache'),
+  optimizeDeps: {
+    // Always re-optimize deps on dev start. Slightly slower first paint,
+    // but immune to "EPERM unlink" errors from a half-written cache.
+    force: true,
+  },
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: false,
+    open: true, // auto-open the browser
+  },
 });
