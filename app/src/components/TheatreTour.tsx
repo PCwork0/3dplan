@@ -16,7 +16,7 @@
 import { useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { sampleTour, TOUR_DURATION } from '../tour/keyframes';
+import { sampleTour, getTourDuration } from '../tour/keyframes';
 import { useStore } from '../store/useStore.ts';
 
 const _state = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 75 };
@@ -24,15 +24,18 @@ const _state = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 75 };
 export default function TheatreTour() {
   const { camera } = useThree();
 
-  // Advance time and apply the sampled camera frame.
+  // Advance time and apply the sampled camera frame. We read the current
+  // tour duration via getTourDuration() each frame so dynamically planned
+  // tours (planTour) take effect without component remounts.
   useFrame((_, dt) => {
     const { tourPlaying, tourTime, setTourTime, setTourPlaying } = useStore.getState();
+    const TOUR_END = getTourDuration();
 
     let t = tourTime;
     if (tourPlaying) {
-      t = Math.min(tourTime + dt, TOUR_DURATION);
+      t = Math.min(tourTime + dt, TOUR_END);
       setTourTime(t);
-      if (t >= TOUR_DURATION) setTourPlaying(false);
+      if (t >= TOUR_END) setTourPlaying(false);
     }
 
     sampleTour(t, _state);
@@ -56,6 +59,6 @@ export default function TheatreTour() {
 
 /** Imperative seek helper used by the HUD scrub bar. */
 export function seekTour(seconds: number) {
-  const t = Math.max(0, Math.min(TOUR_DURATION, seconds));
+  const t = Math.max(0, Math.min(getTourDuration(), seconds));
   useStore.getState().setTourTime(t);
 }

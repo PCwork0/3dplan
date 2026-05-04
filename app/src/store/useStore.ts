@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { buildSceneFromJSON } from '@engine/index.ts';
+import { buildSceneFromJSON, parseAndValidate } from '@engine/index.ts';
 import type { SceneData } from '@engine/types.ts';
+import { planTour } from '../tour/tourPlanner.ts';
+import { setActiveTour, TOUR_DURATION } from '../tour/keyframes.ts';
 
 // ─── Default floor plan (4BHK Indian Apartment — 14m × 9m ≈ 1350 sq ft) ──────
 
@@ -170,6 +172,8 @@ interface AppState {
   // Tour transport state
   tourPlaying:  boolean;
   tourTime:     number;
+  /** Duration of the *currently-installed* tour (dynamic or static fallback). */
+  tourDuration: number;
 
   setJsonInput:    (v: string) => void;
   buildScene:      () => void;
@@ -183,29 +187,62 @@ interface AppState {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-const buildFromJson = (json: string): { data: SceneData | null; errors: string[] } => {
+/**
+ * Build the scene AND plan a dynamic camera tour from the same JSON.
+ * Side effect: installs the planned tour via setActiveTour() so sampleTour()
+ * and getTourDuration() pick it up immediately. Returns the tour duration
+ * for storing in zustand state (keeps the HUD reactive).
+ */
+const buildFromJson = (
+  json: string,
+): { data: SceneData | null; errors: string[]; tourDuration: number } => {
   const result = buildSceneFromJSON(json);
-  if (result.ok) return { data: result.data, errors: [] };
-  return { data: null, errors: result.errors.map(e => `[${e.field}] ${e.message}`) };
+
+  // Plan the dynamic tour from the same JSON. Failures fall back to the static
+  // authored tour — user still sees something playable.
+  let tourDuration = TOUR_DURATION;
+  try {
+    const validation = parseAndValidate(json);
+    if (validation.ok) {
+      const planned = planTour(validation.data);
+      setActiveTour(planned);                       // [] reverts to static
+      if (planned.length >= 2) {
+        tourDuration = planned[planned.length - 1].t;
+      }
+    } else {
+      setActiveTour([]);
+    }
+  } catch (err) {
+    console.warn('[tourPlanner] failed, using static tour:', err);
+    setActiveTour([]);
+  }
+
+  if (result.ok) return { data: result.data, errors: [], tourDuration };
+  return {
+    data:   null,
+    errors: result.errors.map((e) => `[${e.field}] ${e.message}`),
+    tourDuration,
+  };
 };
 
 const initial = buildFromJson(DEFAULT_JSON);
 
 export const useStore = create<AppState>((set, get) => ({
-  sceneData:   initial.data,
-  errors:      initial.errors,
-  jsonInput:   DEFAULT_JSON,
-  cameraMode:  'orbit',
-  layers:      { walls: true, floors: true, ceilings: false, labels: true, measurements: false, wireframe: false },
-  lighting:    LIGHTING_PRESETS.afternoon,   // default: nice afternoon light
-  tourPlaying: false,
-  tourTime:    0,
+  sceneData:    initial.data,
+  errors:       initial.errors,
+  jsonInput:    DEFAULT_JSON,
+  cameraMode:   'orbit',
+  layers:       { walls: true, floors: true, ceilings: false, labels: true, measurements: false, wireframe: false },
+  lighting:     LIGHTING_PRESETS.afternoon,   // default: nice afternoon light
+  tourPlaying:  false,
+  tourTime:     0,
+  tourDuration: initial.tourDuration,
 
   setJsonInput: (v) => set({ jsonInput: v }),
 
   buildScene: () => {
-    const { data, errors } = buildFromJson(get().jsonInput);
-    set({ sceneData: data, errors });
+    const { data, errors, tourDuration } = buildFromJson(get().jsonInput);
+    set({ sceneData: data, errors, tourDuration, tourTime: 0, tourPlaying: false });
   },
 
   toggleLayer: (layer) =>

@@ -42,7 +42,7 @@ import CeilingMesh from './CeilingMesh.tsx';
 import RoomLabels from './RoomLabels.tsx';
 import WallMeasurements from './WallMeasurements.tsx';
 import TheatreTour, { seekTour } from './TheatreTour.tsx';
-import { TOUR_DURATION, activeCaption } from '../tour/keyframes.ts';
+import { activeCaption } from '../tour/keyframes.ts';
 import TourControls from './TourControls.tsx';
 import RecordingPanel from './RecordingPanel.tsx';
 import { tourRecorder } from '../tour/tourRecorder.ts';
@@ -592,15 +592,16 @@ export function CameraModeButton() {
 // ─── Tour HUD — cinematic letterbox + caption + transport ────────────────────
 
 function TourHUD() {
-  const { tourPlaying, tourTime, setTourPlaying } = useStore((s) => ({
+  const { tourPlaying, tourTime, tourDuration, setTourPlaying } = useStore((s) => ({
     tourPlaying:    s.tourPlaying,
     tourTime:       s.tourTime,
+    tourDuration:   s.tourDuration,
     setTourPlaying: s.setTourPlaying,
   }));
 
-  const progress = Math.min(1, tourTime / TOUR_DURATION);
+  const progress = tourDuration > 0 ? Math.min(1, tourTime / tourDuration) : 0;
   const caption  = activeCaption(tourTime);
-  const ended    = tourTime >= TOUR_DURATION - 0.05 && !tourPlaying;
+  const ended    = tourTime >= tourDuration - 0.05 && !tourPlaying;
 
   return (
     <>
@@ -685,7 +686,7 @@ function TourHUD() {
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const u    = (e.clientX - rect.left) / rect.width;
-            seekTour(u * TOUR_DURATION);
+            seekTour(u * tourDuration);
           }}
           style={{
             flex: 1, height: 4, background: '#23223a',
@@ -714,7 +715,7 @@ function TourHUD() {
           fontFamily: 'monospace', fontSize: 11, color: '#a0a0d0',
           minWidth: 64, textAlign: 'right', flexShrink: 0,
         }}>
-          {formatTime(tourTime)} / {formatTime(TOUR_DURATION)}
+          {formatTime(tourTime)} / {formatTime(tourDuration)}
         </div>
       </div>
     </>
